@@ -45,6 +45,7 @@ void createThread(void* arg) {
 
 // void Request(void* arg) {
     //Will need to cast the pointer back so the thread knows its own requester id and file
+    //This is because ThreadCreate requires void*
     //Requester* r = (Requester*) arg;
 // }
 
