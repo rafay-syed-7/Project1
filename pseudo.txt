@@ -1,0 +1,62 @@
+/*
+Psuedocode implementation
+
+public createThreads(string array[] fileNames) {
+    global int num_alive_rq_threads = 0
+    for(int i = 0; i < len(fileNames); i++) {
+        thread_create(thread_startfunc_t Requester, void fileNames[i])
+        num_alive_rq_threads++
+    }
+    
+    thread_create(thread_startfunc_t Servicer)
+
+}
+
+public Requester(string fileName) {
+    fstream fileName // open the file in read only here
+    int queue requests = []
+    for each line in fileName { // 'line' is an int value here
+        requests.append(line)
+    }
+    diskQueue.append(requests.pop()) // we have to figure out how this can be a dictionary entry (ie: how does each thread know what number thread it is)
+    cout << "requester " << requester << " track " << track << endl;
+    ...
+    // wait until this request is done before making another one
+    // when len(requests) == 0 --> retire the thread
+    num_alive_rq_threads--
+}
+
+public Servicer() {
+    while (len(diskQueue) == max_disk_queue || len(diskQueue) == num_alive_rq_threads) {
+        nextService = 100000; // arbitrary big number here
+        for track in diskQueue {
+            if ((track - currentDiskPos) < nextService) {
+                nextService = track
+            }
+        }
+        diskQueue.index(track).remove()
+        cout << "service requester " << requester << " track " << track << endl;
+    }
+    
+}
+
+public void main(argv1, argv2, argv3, ...) {
+
+    int global const max_disk_queue = argv1
+
+    //This is a hash map (dictionary) because key is the requester number (ie: 1), 
+    //and value is track number requester has put in (ie: 550)
+
+    global mapping[int:int] diskQueue // max size of this is max_disk_queue
+
+    int global const currentDiskPos = 0
+    string array[] fileNames = ... // get the rest of the arguments into an array
+
+    if (thread_libinit( (thread_startfunc_t) createThreads, (void *) fileNames)) {
+        //this is bad, so exit
+        cout << "thread_libinit failed" << endl;
+        exit(1);
+    }
+}
+
+*/

@@ -1,62 +1,66 @@
-/*
-Psuedocode implementation
+#include "thread.h"
+#include <assert.h>
+#include <iostream>
+#include <stdint.h>
+#include <unordered_map>
+#include <vector>
+#include <fstream>
 
-public createThreads(string array[] fileNames) {
-    global int num_alive_rq_threads = 0
-    for(int i = 0; i < len(fileNames); i++) {
-        thread_create(thread_startfunc_t Requester, void fileNames[i])
-        num_alive_rq_threads++
+using namespace std;
+
+//Global shared state
+std::unordered_map<int, int> diskQueue;   //requester id and track
+int num_alive_requesters = 0; //threads alive
+int currentDiskPos = 0; //disk head position
+int max_disk_queue = 0;
+
+//locks and CVs
+const unsigned int queue_lock = 1;
+const unsigned int queue_not_full = 2; //requesters 
+const unsigned int queue_full_enough = 3; //servicers
+const unsigned int request_serviced = 100; //each requester gets an offset (r id + 100)
+
+struct Requester {
+    int id;
+    std::ifstream file; //ensures each disk is only reading from its own track 
+};
+
+std::vector<Requester> requesters;
+
+// void Request(void* arg) {
+
+// }
+
+// void Service(void* arg) {
+
+// }
+
+// void createThread(void* arg) {
+
+// }
+
+int main(int argc, char* argv[]) {
+    //ensures proper amount of command line arguments
+    if(argc < 3) {
+        return 0;
     }
-    
-    thread_create(thread_startfunc_t Servicer)
 
-}
+    max_disk_queue = atoi(argv[1]);
 
-public Requester(string fileName) {
-    fstream fileName // open the file in read only here
-    int queue requests = []
-    for each line in fileName { // 'line' is an int value here
-        requests.append(line)
-    }
-    diskQueue.append(requests.pop()) // we have to figure out how this can be a dictionary entry (ie: how does each thread know what number thread it is)
-    cout << "requester " << requester << " track " << track << endl;
-    ...
-    // wait until this request is done before making another one
-    // when len(requests) == 0 --> retire the thread
-    num_alive_rq_threads--
-}
 
-public Servicer() {
-    while (len(diskQueue) == max_disk_queue || len(diskQueue) == num_alive_rq_threads) {
-        nextService = 100000; // arbitrary big number here
-        for track in diskQueue {
-            if ((track - currentDiskPos) < nextService) {
-                nextService = track
-            }
+    //build the requesters
+    //output is a vector of each requester id and the open file
+    for(int i = 2; i < argc; i++) {
+        Requester r;
+        r.id = i - 2; //first disc will start at 0
+        r.file.open(argv[i]);
+        if(!r.file.is_open()) {
+            exit(1);
         }
-        diskQueue.index(track).remove()
-        cout << "service requester " << requester << " track " << track << endl;
+
+        requesters.push_back(std::move(r)); //pushes the file into the vector 
     }
-    
+
+    num_alive_requesters = requesters.size();
+    cout << num_alive_requesters;
 }
-
-public void main(argv1, argv2, argv3, ...) {
-
-    int global const max_disk_queue = argv1
-
-    //This is a hash map (dictionary) because key is the requester number (ie: 1), 
-    //and value is track number requester has put in (ie: 550)
-
-    global mapping[int:int] diskQueue // max size of this is max_disk_queue
-
-    int global const currentDiskPos = 0
-    string array[] fileNames = ... // get the rest of the arguments into an array
-
-    if (thread_libinit( (thread_startfunc_t) createThreads, (void *) fileNames)) {
-        //this is bad, so exit
-        cout << "thread_libinit failed" << endl;
-        exit(1);
-    }
-}
-
-*/
