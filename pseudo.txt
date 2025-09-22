@@ -9,7 +9,6 @@ public createThreads(string array[] fileNames) {
     }
     
     thread_create(thread_startfunc_t Servicer)
-
 }
 
 public Requester(string fileName) {

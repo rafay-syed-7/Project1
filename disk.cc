@@ -27,15 +27,28 @@ struct Requester {
 
 std::vector<Requester> requesters;
 
-// void Request(void* arg) {
+void createThread(void* arg) {
+    num_alive_requesters = requesters.size();
 
+    //create a thread per requester
+    for(auto &r: requesters) {
+        //checks to see if the thread is actually created
+        if(thread_create(thread_startfunc_t) Request, &r) {
+            exit(1);
+        }
+    }
+
+    if(thread_create(thread_startfunc_t), Service, nullptr) {
+        exit(1);
+    }
+}
+
+// void Request(void* arg) {
+    //Will need to cast the pointer back so the thread knows its own requester id and file
+    //Requester* r = (Requester*) arg;
 // }
 
 // void Service(void* arg) {
-
-// }
-
-// void createThread(void* arg) {
 
 // }
 
@@ -44,6 +57,8 @@ int main(int argc, char* argv[]) {
     if(argc < 3) {
         return 0;
     }
+
+    //TO DO: ADD MORE COMMAND LINE EDGE CASES TO CHECK
 
     max_disk_queue = atoi(argv[1]);
 
@@ -61,6 +76,10 @@ int main(int argc, char* argv[]) {
         requesters.push_back(std::move(r)); //pushes the file into the vector 
     }
 
-    num_alive_requesters = requesters.size();
-    cout << num_alive_requesters;
+    //cout << num_alive_requesters << endl;
+
+    //Start creating thread system
+    if (thread_libinit((thread_startfunc_t) createThreads, nullptr)) {
+        return 1;
+    }
 }
