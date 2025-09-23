@@ -26,7 +26,7 @@ struct Requester {
     std::ifstream file; //ensures each disk is only reading from its own track 
 };
 
-// Global variables
+// Global variables (need to be locked when accessed)
 std::vector<Requester> requesters;
 std::queue<int> requestsQueue;
 
@@ -58,17 +58,20 @@ void Request(void* arg) {
     Requester* r = (Requester*) arg;
 
     /*
-    lock
+    acquire lock
     for (line in r->file) {
         add line to requestsQueue;
-        ...
+        wait until line serviced // release lock here
     }  
-    unlock
+    release lock
     */
 }
 
 void Service(void* arg) {
-
+    /*
+    
+    
+    */
 }
 
 int main(int argc, char* argv[]) {
