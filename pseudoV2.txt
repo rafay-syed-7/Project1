@@ -1,0 +1,36 @@
+void Request(void* arg) {
+    Requester* r = (Requester*) arg; 
+    int track; 
+
+    while(*still tracks in requester file*) {
+        thread_lock(queue_lock);
+
+        //if queue is full wait to request
+        while(diskQueue >= max_disk_queue) {
+            thread_wait(queue_lock, queue_not_full);
+        }
+
+        //now woken up so out of the loop
+
+        //add track to queue
+        diskQueue.add(r->track);
+
+        //print requester statement
+        print(requester x request track y)
+
+        //signal Servicer
+        thread_service(queue_lock, queue_full_enough);
+
+        //once call servicer need to wait for it to be serviced
+        thread_wait(queue_lock, r->id + requestServiced);
+
+        //now can unlock thread
+        thread_unlock(queue_lock);
+    }
+
+    thread_lock(queue_lock);
+    num_alive_rq_threads--;
+    thread_signal(queue_lock, queue_full_enough);
+    thread_unlock(queue_lock);
+
+}
