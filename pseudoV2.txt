@@ -2,24 +2,24 @@ void Request(void* arg) {
     Requester* r = (Requester*) arg; 
     int track; 
 
-    while(*still tracks in requester file*) {
+    while(r -> file >> track) {
         thread_lock(queue_lock);
 
         //if queue is full wait to request
-        while(diskQueue >= max_disk_queue) {
+        while(diskQueue == min(max_disk_queue, num_alive_rq_threads)) { // might have to change conditional logic here
             thread_wait(queue_lock, queue_not_full);
         }
 
-        //now woken up so out of the loop
+        //now woken up so out of the loop and acquires lock automatically
 
-        //add track to queue
-        diskQueue.add(r->track);
+        //find the track to service
+        diskQueue[r-> id] = track; // this is a dictionary
 
         //print requester statement
-        print(requester x request track y)
+        print(requester id request id -> track)
 
         //signal Servicer
-        thread_service(queue_lock, queue_full_enough);
+        signal(queue_lock, queue_full_enough);
 
         //once call servicer need to wait for it to be serviced
         thread_wait(queue_lock, r->id + requestServiced);
@@ -31,6 +31,40 @@ void Request(void* arg) {
     thread_lock(queue_lock);
     num_alive_rq_threads--;
     thread_signal(queue_lock, queue_full_enough);
+    thread_unlock(queue_lock);
+
+}
+
+void Service(void* arg) {
+
+    while(!diskQueue.isEmpty() || num_alive_requesters > 0) { // added this in case servicer gets called first
+
+        thread_lock(queue_lock);
+
+        //if queue is not full wait to service
+        while(diskQueue < min(max_disk_queue, num_alive_rq_threads) && num_alive_rq_threads > 0) { // might have to change conditional logic here
+            thread_wait(queue_lock, queue_not_full);
+        }
+
+        //need an if statement because disk_queue could be empty this iteration of while loop
+        if(!diskQueue.isEmpty()) {
+            int closetYet = 100000;
+            int closestYetID = 0;
+            for (auto &entry: diskQueue) {
+                //Potential issue: SSTF logic 
+                if ((entry.second - currentDiskPos) < closestYet - currentDiskPos) {
+                    closestYet = entry.second;
+                    closestYetID = entry.first;
+                }
+            }
+            //potential issue: order of the updates and whether or not inside our outside of loops
+            cout << "service requester " << closestYetID << " track " << closestYet << endl;
+            currentDiskPos = closestYet
+            diskQueue.erase(closestYetID)
+            thread_signal(queue_lock, r->id + requestServiced);
+            thread_signal(queue_lock, queue_not_full); 
+        }
+    }  
     thread_unlock(queue_lock);
 
 }

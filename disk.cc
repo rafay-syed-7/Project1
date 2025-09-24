@@ -11,7 +11,7 @@ using namespace std;
 //Global shared state
 std::unordered_map<int, int> diskQueue;   //requester id and track
 int num_alive_requesters = 0; //threads alive
-int currentDiskPos = 0; //disk head position
+int currentDiskPos = 0; // disk head position
 int max_disk_queue = 0; // will be passed in as first argument in command line 
 
 
@@ -70,7 +70,6 @@ void Request(void* arg) {
 void Service(void* arg) {
     /*
     
-    
     */
 }
 
@@ -88,7 +87,7 @@ int main(int argc, char* argv[]) {
     //build the requesters
     //output is a vector of each requester id and the open file
     for(int i = 2; i < argc; i++) {
-        Requester r; // made this ri so that the name of the Requester would change
+        Requester r;
         r.id = i - 2; //first disc will start at 0
         r.file.open(argv[i]);
         if(!r.file.is_open()) {
