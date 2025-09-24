@@ -52,7 +52,7 @@ void Service(void* arg) {
             int closestYetID = 0;
             for (auto &entry: diskQueue) {
                 //Potential issue: SSTF logic 
-                if ((entry.second - currentDiskPos) < closestYet - currentDiskPos) {
+                if (abs(entry.second - currentDiskPos) < abs(closestYet - currentDiskPos)) {
                     closestYet = entry.second;
                     closestYetID = entry.first;
                 }
