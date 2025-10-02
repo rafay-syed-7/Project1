@@ -8,8 +8,28 @@
 #include <algorithm>
 #include <ucontext.h>
 
+using namespace std;
+
+queue<ucontext_t*> readyQ;
+queue<ucontext_t*> waitingForMonitorLock;
+queue<ucontext_t*> waitingForSignal;
+
+ucontext_t* scheduler_thread = new ucontext_t;
+
+void schedule() {
+    /*
+    
+
+    deallocate the thread that just came in
+    if readyQ == empty --> exit(0) and print(thread library finished)
+    else setcontext to next thread on readyQ
+
+    */
+}
+
+
 /*
-    thread_libinit initializes the thread library.  A user program should call
+    thread_libinit initializs the thread library.  A user program should call
     thread_libinit exactly once (before calling any other thread functions).
     thread_libinit creates and runs the first thread.  This first thread is
     initialized to call the function pointed to by func with the single
@@ -23,12 +43,35 @@ int thread_libinit(thread_startfunc_t func, void *arg) {
     // 2. it also cant be called more than once
 
     ucontext_t* thread0_ptr = new ucontext_t;
+    //error catching needs to be added
 
+    
+    //seperate thread -- scheduler context
+    getcontext(scheduler_thread);
+    char* stack_scheduler = new char[STACK_SIZE];
+    scheduler_thread->uc_stack.ss_sp = stack_scheduler;
+    scheduler_thread->uc_stack.ss_size = STACK_SIZE;
+    scheduler_thread->uc_stack.ss_flags = 0;
+    scheduler_thread->uc_link = NULL;
+    makecontext(scheduler_thread, (void (*)()) schedule, 0);
+
+    // setting up our first thread
     getcontext(thread0_ptr);
+    thread0_ptr->uc_stack.ss_sp = stack_thread0;
+    thread0_ptr->uc_stack.ss_size = STACK_SIZE;
+    thread0_ptr->uc_stack.ss_flags = 0;
+    thread0_ptr-> uc_link = scheduler_thread; //control goes back to the scheduler
+    makecontext(thread0_ptr, (void(*) ()) func, 1, arg);
+    //need to switch into the first thread: swap_context 
 
-    char* stack = new char[STACK_SIZE];
-    thread0_ptr->uc_stack.ss_sp = stack;
+    setcontext(thread0_ptr);
+    //missing interrupts
 
 
+    // For future use when we forget all of this:
+    // ucontext_t is the TCB?
+    // We keep track of the threads through the 3 queues mentioned above
+    // threadlibinit is unique in that it creates a thread and runs it. thread create creates a thread and adds it to readyQ
+    // threadYield swaps the current thread with the next thread on readyQ
 }
     
