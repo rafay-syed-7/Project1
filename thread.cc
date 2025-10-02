@@ -22,7 +22,7 @@ void schedule() {
 
     deallocate the thread that just came in
     if readyQ == empty --> exit(0) and print(thread library finished)
-    else setcontext to next thread on readyQ
+    else swapcontext to next thread on readyQ
 
     */
 }
@@ -57,6 +57,7 @@ int thread_libinit(thread_startfunc_t func, void *arg) {
 
     // setting up our first thread
     getcontext(thread0_ptr);
+    char* stack_thread0 = new char[STACK_SIZE];
     thread0_ptr->uc_stack.ss_sp = stack_thread0;
     thread0_ptr->uc_stack.ss_size = STACK_SIZE;
     thread0_ptr->uc_stack.ss_flags = 0;
