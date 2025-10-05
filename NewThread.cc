@@ -10,9 +10,19 @@
 
 using namespace std;
 
-queue<ucontext_t*> readyQ;
-queue<ucontext_t*> waitingForMonitorLock;
-queue<ucontext_t*> waitingForSignal;
+struct TCB {
+    int thread_id;
+    ucontext_t* context;
+    char* stack;
+    enum State {READY, RUNNING, BLOCKED, FINISHED} state;
+};
+
+queue<TCB*> readyQ;
+queue<TCB*> waitingForMonitorLock;
+queue<TCB*> waitingForSignal;
+
+ucontext_t scheduler_thread;
+
 
 bool libinitCalledBefore = 0;
 
@@ -41,8 +51,7 @@ int thread_create(thread_startfunc_t func, void *arg) {
     thread_ptr->uc_stack.ss_flags = 0;
     thread_ptr-> uc_link = NULL; //This thread just dies at the end of its life
 
-    makecontext(thread_ptr, (void(*) ()) func, 1, arg);
-    //need to switch into the first thread: swap_context 
+    makecontext(thread_ptr, (void(*) ()) func, 1, arg); 
 
     setcontext(thread_ptr);
     
