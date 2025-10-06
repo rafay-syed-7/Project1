@@ -18,10 +18,30 @@ struct lock {
     // blockedQ
     // map CV -> blockedQ
     // bool free
-    ucontext_t* cuurent_holder;
+    ucontext_t* current_holder;
 };
 
 bool libinitCalledBefore = 0;
+
+
+void thread_start(thread_startfunc_t func, void *arg) {
+    interrupt.enable();
+
+    //run user func
+    func(arg); 
+
+    interrupt.disable();
+
+    if(!readyQ.empty()) {
+        //cleanup -- idk how that looks with when creating a delete thread and deleting that 
+    }
+    else {
+        cout << "Thread library exiting.\n";
+        exit(0);
+    }
+
+    //TO DO: Ask Jeannie about the delete thread (extra thread for cleanup, because you can't delete a current thread)
+}
 
 // this looks good
 int thread_libinit(thread_startfunc_t func, void *arg) {
@@ -41,24 +61,67 @@ int thread_libinit(thread_startfunc_t func, void *arg) {
         makecontext(thread0_ptr, (void(*) ()) thread_start, 2, func, arg);
 
         setcontext(thread0_ptr);
-
     } else {
         cout << "threadlibinit_failed\n" << endl;
         exit(1);
     }
-
-
 }
+//internal function, so we don't have to deal with interrupts
+int thread_create_internal(thread_startfunc_t fun, void *arg) {
+    ucontext_t* new_thread = new u_context_t;
+    getcontext(new_thread);
+    char* stack_new_thread = new char[STACK_SIZE];
 
-int thread_create(thread_startfunc_t func, void *arg) {
+    //error checking -- if ran out of memory
+    if(stack_new_thread == nullptr) return -1;
 
+    new_thread->uc_stack.ss_sp = stack_new_thread;
+    new_thread->uc_stack.ss_size = STACK_SIZE;
+    new_thread->uc_stack.ss_flags = 0;
+    new_thread->uc_link = NULL;
+
+    makecontext(new_thread, (void(*)()) thread_start, 2, func, arg);
     
+    //push thread to readyQ
+    readyQ.push(new_thread);
+
+    return 0;
 }
+
+//TO DO: check with Jeanie and thread_create_internal -- but looks good
+int thread_create(thread_startfunc_t func, void *arg) {
+    // ensuring libinit is already called, otherwise exit
+    if(!libinitCalledBefore) {
+        return -1;
+    }  
+    interrupt.disable();
+    //call internal function
+    int result = thread_create_internal(func, arg);
+    interrupt.enable();
+    return result;
+}
+
+void run_next_ready() {
+    //Save current thread context
+    ucontext_t* previous_thread = current_thread;
+
+    //get the next thread from readyQ
+    ucontext_t* next_thread = readyQ.front();
+    readyQ.pop();
+
+    //update current thread pointer
+    current_thread = next_thread;
+
+    //swap context, with error checking
+    if(previous != nullptr) {
+        swapcontext(previous_thread, next_thread);
+    }
+}
+
 int thread_yield(void);
 int thread_lock(unsigned int lock);
 int thread_unlock(unsigned int lock);
-void run_next_ready();
-void thread_start(thread_startfunc_t func, void *arg);
+
 /*
 
 global variable current_thread
@@ -105,7 +168,6 @@ function run_next_ready {
     next thread = pop readyQ
     current = next
     swapcontext
-
 }
 
 function yield() {

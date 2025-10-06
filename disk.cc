@@ -1,8 +1,8 @@
 #include "thread.h"
 #include <assert.h>
 #include <iostream>
-#include <stdint.h>
 #include <unordered_map>
+#include <stdint.h>
 #include <vector>
 #include <fstream>
 #include <algorithm>

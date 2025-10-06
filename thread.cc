@@ -10,11 +10,20 @@
 
 using namespace std;
 
-queue<ucontext_t*> readyQ;
-queue<ucontext_t*> waitingForMonitorLock;
-queue<ucontext_t*> waitingForSignal;
+struct TCB {
+    int thread_id;
+    ucontext_t* context;
+    char* stack;
+    enum State {READY, RUNNING, BLOCKED, FINISHED} state;
+};
 
-ucontext_t* scheduler_thread = new ucontext_t;
+queue<TCB*> readyQ;
+queue<TCB*> waitingForMonitorLock;
+queue<TCB*> waitingForSignal;
+
+ucontext_t scheduler_thread;
+
+
 
 void schedule() {
     /*
