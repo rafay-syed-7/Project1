@@ -7,81 +7,220 @@
 #include <fstream>
 #include <algorithm>
 #include <ucontext.h>
+#include <queue>
 
 using namespace std;
 
-struct TCB {
-    int thread_id;
-    ucontext_t* context;
-    char* stack;
-    enum State {READY, RUNNING, BLOCKED, FINISHED} state;
+static ucontext_t* delete_thread;
+static ucontext_t* current_thread;
+static queue<ucontext_t*> readyQ;
+// blockedQ implementations
+
+struct lock {
+    // blockedQ
+    // map CV -> blockedQ
+    // bool free
+    ucontext_t* current_holder;
 };
 
-queue<TCB*> readyQ;
-queue<TCB*> waitingForMonitorLock;
-queue<TCB*> waitingForSignal;
+//locs(id) --> map(ID, lock)
+//  lock struct
+//  int id
+//. queue of blocked ucontext _ts
+//  boolean free (for a given lock is it free or not)
+//. map(int cv, queue of blocked threads)
 
-ucontext_t scheduler_thread;
 
+bool libinitCalledBefore = 0;
 
+void run_next_ready() {
+    //Save current thread context
+    ucontext_t* previous_thread = current_thread;
 
-void schedule() {
-    /*
-    
+    //get the next thread from readyQ
+    ucontext_t* next_thread = readyQ.front();
+    readyQ.pop();
 
-    deallocate the thread that just came in
-    if readyQ == empty --> exit(0) and print(thread library finished)
-    else swapcontext to next thread on readyQ
+    //update current thread pointer
+    current_thread = next_thread;
 
-    */
+    //swap context, with error checking
+    if(previous_thread != nullptr) {
+        swapcontext(previous_thread, next_thread);
+    }
 }
 
+void thread_start(thread_startfunc_t func, void *arg) {
+    //interrupt.enable();
+
+    //run user func
+    func(arg); 
+
+    //interrupt.disable();
+
+    
+    if(!readyQ.empty()) {
+        //cleanup -- idk how that looks with when creating a delete thread and deleting that 
+        //check if its not null
+
+        if(delete_thread != nullptr) {
+            delete[](char*) delete_thread->uc_stack.ss_sp; //free stack
+            delete delete_thread; //free ucontext
+        }
+
+        delete_thread = current_thread; //mark this thread to be deleted by the next one
+        run_next_ready(); //swap to the next thread
+    }
+    else {
+        cout << "Thread library exiting.\n";
+        exit(0);
+    }
+}
+
+// this looks good
+int thread_libinit(thread_startfunc_t func, void *arg) {
+    
+    if (!libinitCalledBefore) {
+
+        libinitCalledBefore = 1;
+
+        ucontext_t* thread0_ptr = new ucontext_t;
+        getcontext(thread0_ptr);
+        char* stack_thread0 = new char[STACK_SIZE];
+        thread0_ptr->uc_stack.ss_sp = stack_thread0;
+        thread0_ptr->uc_stack.ss_size = STACK_SIZE;
+        thread0_ptr->uc_stack.ss_flags = 0;
+        thread0_ptr-> uc_link = NULL;
+
+        makecontext(thread0_ptr, (void(*) ()) thread_start, 2, func, arg);
+        current_thread = thread0_ptr; //new add
+        setcontext(thread0_ptr);
+    } else {
+        cout << "threadlibinit_failed\n" << endl;
+        exit(1);
+    }
+
+    return 0;
+}
+//internal function, so we don't have to deal with interrupts
+int thread_create_internal(thread_startfunc_t func, void *arg) {
+    ucontext_t* new_thread = new ucontext_t;
+    getcontext(new_thread);
+    char* stack_new_thread = new char[STACK_SIZE];
+
+    //error checking -- if ran out of memory
+    if(stack_new_thread == nullptr) return -1;
+
+    new_thread->uc_stack.ss_sp = stack_new_thread;
+    new_thread->uc_stack.ss_size = STACK_SIZE;
+    new_thread->uc_stack.ss_flags = 0;
+    new_thread->uc_link = NULL;
+
+    makecontext(new_thread, (void(*)()) thread_start, 2, func, arg);
+    
+    //push thread to readyQ
+    readyQ.push(new_thread);
+
+    return 0;
+}
+
+//TO DO: check with Jeanie and thread_create_internal -- but looks good
+int thread_create(thread_startfunc_t func, void *arg) {
+    // ensuring libinit is already called, otherwise exit
+    if(!libinitCalledBefore) {
+        return -1;
+    }  
+    //interrupt.disable();
+    //call internal function
+    int result = thread_create_internal(func, arg);
+    //interrupt.enable();
+    return result;
+}
+
+
+
+//are we using interrupts for thread_yield?
+int thread_yield(void) {
+    //interrupt.disable();
+    readyQ.push(current_thread);
+    run_next_ready();
+    //interrupt.enable();
+    return 0;
+}
+int thread_lock(unsigned int lock);
+int thread_unlock(unsigned int lock);
 
 /*
-    thread_libinit initializs the thread library.  A user program should call
-    thread_libinit exactly once (before calling any other thread functions).
-    thread_libinit creates and runs the first thread.  This first thread is
-    initialized to call the function pointed to by func with the single
-    argument arg.  Note that a successful call to thread_libinit will not
-    return to the calling function.  Instead, control transfers to func, and
-    the function that calls thread_libinit will never execute again.
-*/
 
-int thread_libinit(thread_startfunc_t func, void *arg) {
-    // 1. needs test to see if this is first thread function called
-    // 2. it also cant be called more than once
+global variable current_thread
+global variable readyQ
+global variable blockedQ 
+global variable locks(ID) // maybe an array or something? or prob map lock ->  <ID, Queue> and then <lock, CV>, queue
 
-    ucontext_t* thread0_ptr = new ucontext_t;
-    //error catching needs to be added
+//lock struct to hold blocked queuees 
 
-    
-    //seperate thread -- scheduler context
-    getcontext(scheduler_thread);
-    char* stack_scheduler = new char[STACK_SIZE];
-    scheduler_thread->uc_stack.ss_sp = stack_scheduler;
-    scheduler_thread->uc_stack.ss_size = STACK_SIZE;
-    scheduler_thread->uc_stack.ss_flags = 0;
-    scheduler_thread->uc_link = NULL;
-    makecontext(scheduler_thread, (void (*)()) schedule, 0);
+struct lock {
 
-    // setting up our first thread
-    getcontext(thread0_ptr);
-    char* stack_thread0 = new char[STACK_SIZE];
-    thread0_ptr->uc_stack.ss_sp = stack_thread0;
-    thread0_ptr->uc_stack.ss_size = STACK_SIZE;
-    thread0_ptr->uc_stack.ss_flags = 0;
-    thread0_ptr-> uc_link = scheduler_thread; //control goes back to the scheduler
-    makecontext(thread0_ptr, (void(*) ()) func, 1, arg);
-    //need to switch into the first thread: swap_context 
+    blockedQ
+    map(CV to BlockQ) //unique matches will have there own queue
 
-    setcontext(thread0_ptr);
-    //missing interrupts
-
-
-    // For future use when we forget all of this:
-    // ucontext_t is the TCB?
-    // We keep track of the threads through the 3 queues mentioned above
-    // threadlibinit is unique in that it creates a thread and runs it. thread create creates a thread and adds it to readyQ
-    // threadYield swaps the current thread with the next thread on readyQ
 }
-    
+
+
+// do the internal enable interrupts disable interrupts trick for thread_create(), thread_lock(), thread_unlock()
+
+function thread_libinit {
+    creates first thread
+    runs it (setcontext)
+    Makes sure it can only get called once
+}
+
+
+function thread_create(func, arg) { // the way she does it is 1. disable interrupts 2. call thread_create_internal 
+    make ucontext
+        getcontext
+        makecontext(thread_start) // *********
+        stack space (SP) // USE NEW (which is the c++ equivalent of malloc)
+
+    Push thread onto ready queue
+}
+
+function thread_start(func, arg) {
+    enable interrupts here
+    void* (func)(arg);
+    disable interrupts here
+    clean up threads and stuff
+}
+
+function run_next_ready {
+    next thread = pop readyQ
+    current = next
+    swapcontext
+}
+
+function yield() {
+    push current_thread to readyQ
+    run_next_ready()
+}
+
+function lock(int ID) {
+    check if lock is held
+        if it is free
+            mark it as not free
+            return
+        else
+            add current_thread to BlockedQ
+            run_next_ready
+}
+
+function unlock(int ID) {
+    make sure current_thread has lock
+    mark lock as free
+    if threads are on blockedQ
+        pop front
+        give lock to popped thread
+        add to readyQ
+}
+
+
+*/
