@@ -13,13 +13,12 @@ void child(void *arg) {
         exit (1);
     }
 
-    cout << "Child thread finishing.\n";
+    thread_yield();
 }
 
 void parent(void*arg) {
     cout << "Parent thread started.\n";
 
-    //create a child thread
     if(thread_create((thread_startfunc_t) child, (void*) "hi from child")) {
         cout << "thread_create failed\n";
         exit(1);

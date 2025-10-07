@@ -16,8 +16,6 @@ using namespace std;
 ucontext_t* delete_thread;
 ucontext_t* current_thread;
 queue<ucontext_t*> readyQ;
-unordered_map<unsigned int, Lock*> lockDictionary;
-
 
 struct Lock {
     unordered_map< int, queue<ucontext_t*> > CVtoBlockedQ;
@@ -27,6 +25,7 @@ struct Lock {
     ucontext_t* current_holder;
 };
 
+unordered_map<unsigned int, Lock*> lockDictionary;
 
 
 //locks(id) --> map(ID, lock)
@@ -66,6 +65,49 @@ function lock(int ID) {
 }
 */
 
+void run_next_ready() {
+    //Save current thread context
+    ucontext_t* previous_thread = current_thread;
+
+    //get the next thread from readyQ
+    ucontext_t* next_thread = readyQ.front();
+    readyQ.pop();
+
+    //update current thread pointer
+    current_thread = next_thread;
+ 
+    //swap context, with error checking
+    if(previous_thread != nullptr) {
+        swapcontext(previous_thread, next_thread);
+    }
+}
+
+int thread_lock_internal(unsigned int lock) {
+    //if lock exists
+    if (lockDictionary.find(lock) != lockDictionary.end()) {
+        Lock* currentLock = lockDictionary[lock];
+        //if lock free
+        if(currentLock->free) {
+            currentLock->free = false;
+            currentLock->current_holder = current_thread;
+            return 0;
+        //if lock not free
+        } else { 
+            //add to blocked queue 
+            currentLock->blockedThreads.push(current_thread);
+            run_next_ready();
+            return 0;
+        }
+    } else { // lock does not exist, first time lock has been called 
+        Lock* newLock = new Lock();
+        newLock->free = false;
+        newLock->id = lock;
+        newLock->current_holder = current_thread;
+        lockDictionary[newLock->id] = newLock;
+        return 0;
+    }
+}
+
 int thread_lock(unsigned int lock) {
     // ensuring libinit is already called, otherwise exit
     if(!libinitCalledBefore) {
@@ -76,55 +118,6 @@ int thread_lock(unsigned int lock) {
     interrupt_enable();
     return result;
 }
-
-
-
-int thread_lock_internal(unsigned int lock) {
-    //if lock exists
-    if (lockDictionary.find(lock) != lockDictionary.end()) {
-        Lock* currentLock = lockDictionary[lock];
-        //if lock free
-        if(currentLock->free) {
-            currentLock->free = false;
-            currentLock->current_holder = current_thread;
-            return;
-        //if lock not free
-        } else { 
-            //add to blocked queue 
-            currentLock->blockedThreads.push(current_thread);
-            run_next_ready();
-            return;
-        }
-    } else { // lock does not exist, first time lock has been called 
-        Lock* newLock = new Lock();
-        newLock->free = false;
-        newLock->id = lock;
-        newLock->current_holder = current_thread;
-        lockDictionary[newLock->id] = newLock;
-        return;
-    }
-}
-
-
-int thread_unlock(unsigned int lock) {
-    // ensuring libinit is already called, otherwise exit
-    if(!libinitCalledBefore) {
-        return -1;
-    }  
-    interrupt_disable();
-    int result = thread_unlock_internal(lock);
-    interrupt_enable();
-    return result;
-}
-
-// function unlock(int ID) {
-//     make sure current_thread has lock
-//     mark lock as free
-//     if threads are on blockedQ
-//         pop front
-//         give lock to popped thread
-//         add to readyQ
-// }
 
 int thread_unlock_internal(unsigned int lock) {
     //error catching -- make sure lock actually exists 
@@ -148,35 +141,37 @@ int thread_unlock_internal(unsigned int lock) {
             currentLock->blockedThreads.pop();
             currentLock->free = false;
             readyQ.push(currentLock->current_holder);
-            return;
+            return 0;
         } else {
             currentLock->current_holder = nullptr;
-            return;
+            return 0;
         }
     }
     exit(1);
 }
 
-void run_next_ready() {
-    //Save current thread context
-    ucontext_t* previous_thread = current_thread;
-
-    //get the next thread from readyQ
-    ucontext_t* next_thread = readyQ.front();
-    readyQ.pop();
-
-    //update current thread pointer
-    current_thread = next_thread;
-
-    //swap context, with error checking
-    if(previous_thread != nullptr) {
-        swapcontext(previous_thread, next_thread);
-    }
+int thread_unlock(unsigned int lock) {
+    // ensuring libinit is already called, otherwise exit
+    if(!libinitCalledBefore) {
+        return -1;
+    }  
+    interrupt_disable();
+    int result = thread_unlock_internal(lock);
+    interrupt_enable();
+    return result;
 }
 
-void thread_start(thread_startfunc_t func, void *arg) {
-    interrupt_enable();
+// function unlock(int ID) {
+//     make sure current_thread has lock
+//     mark lock as free
+//     if threads are on blockedQ
+//         pop front
+//         give lock to popped thread
+//         add to readyQ
+// }
 
+
+void thread_start(thread_startfunc_t func, void *arg) {
     //run user func
     func(arg); // might have a type cast issue might need void *
 
