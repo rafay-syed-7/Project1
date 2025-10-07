@@ -13,12 +13,14 @@
 
 using namespace std;
 
-ucontext_t* delete_thread;
-ucontext_t* current_thread;
+ucontext_t* delete_thread = nullptr;
+ucontext_t* current_thread = nullptr;
 queue<ucontext_t*> readyQ;
 
+bool DEBUG_INTERRUPTS = true;
+
 struct Lock {
-    unordered_map< int, queue<ucontext_t*> > CVtoBlockedQ;
+    unordered_map<int, queue<ucontext_t*> > CVtoBlockedQ;
     queue<ucontext_t*> blockedThreads;
     bool free;
     int id;
@@ -27,45 +29,24 @@ struct Lock {
 
 unordered_map<unsigned int, Lock*> lockDictionary;
 
+// void debug_interrupts_disable(const char* func_name) {
+//     if(DEBUG_INTERRUPTS) {
+//         cout << "[DEBUG] interrupt_disable called in " << func_name << endl;
+//     }
+//     interrupt_disable();
+// }
 
-//locks(id) --> map(ID, lock)
-//  lock struct
-//  int id
-//. queue of blocked ucontext _ts
-//  boolean free (for a given lock is it free or not)
-//. map(int cv, queue of blocked threads)
-
+// void debug_interrupts_enable(const char* func_name) {
+//     if(DEBUG_INTERRUPTS) {
+//         cout << "[DEBUG] interrupt_enable called in " << func_name << endl;
+//     }
+//     interrupt_enable();
+// }
 
 bool libinitCalledBefore = 0;
 
-/*
-function lock(int ID) {
-    Lock* l //create instance 
-    if (ID exists in lockDicitionary) {
-        check if lock is held
-        if it is free
-            mark it as not free
-            assign current_thread as Lock->current_holder
-            return
-        else
-            add current_thread to BlockedQ
-            run_next_ready
-            return
-    } else { // lock does not exist
-        Lock newLock;
-        newLock.CVtoBlockedQ = new unordered_map< int, queue<ucontext_t*> > 
-        newLock.blockedThreads = new queue<ucontext_t*>;
-        newLock.free = false;
-        newLock.id = lock;
-        newLock.current_holder = current_thread;
-        lockDictionary[newLock.id] = &newLock;
-        return;
-    }
-
-}
-*/
-
 void run_next_ready() {
+    assert_interrupts_disabled();
     //Save current thread context
     ucontext_t* previous_thread = current_thread;
 
@@ -75,7 +56,7 @@ void run_next_ready() {
 
     //update current thread pointer
     current_thread = next_thread;
- 
+
     //swap context, with error checking
     if(previous_thread != nullptr) {
         swapcontext(previous_thread, next_thread);
@@ -83,6 +64,7 @@ void run_next_ready() {
 }
 
 int thread_lock_internal(unsigned int lock) {
+    assert_interrupts_disabled();
     //if lock exists
     if (lockDictionary.find(lock) != lockDictionary.end()) {
         Lock* currentLock = lockDictionary[lock];
@@ -113,22 +95,27 @@ int thread_lock(unsigned int lock) {
     if(!libinitCalledBefore) {
         return -1;
     }  
+     //assert_disable or assert_enable?
     interrupt_disable();
+    //debug_interrupts_disable(__FUNCTION__);
     int result = thread_lock_internal(lock);
+    //shows the previous state of whether disabled or enabled
     interrupt_enable();
+    //debug_interrupts_enable(__FUNCTION__);
     return result;
 }
 
 int thread_unlock_internal(unsigned int lock) {
     //error catching -- make sure lock actually exists 
+    assert_interrupts_disabled();
     if (lockDictionary.find(lock) == lockDictionary.end()) {
-        exit(1);
+        return -1;
     } 
     
     Lock* currentLock = lockDictionary[lock];
     
     if (currentLock->current_holder != current_thread) {
-        exit(1);
+        return -1;
     }
 
     //if not free, unlock 
@@ -147,7 +134,7 @@ int thread_unlock_internal(unsigned int lock) {
             return 0;
         }
     }
-    exit(1);
+    return -1;
 }
 
 int thread_unlock(unsigned int lock) {
@@ -156,27 +143,26 @@ int thread_unlock(unsigned int lock) {
         return -1;
     }  
     interrupt_disable();
+    //debug_interrupts_disable(__FUNCTION__);
+
     int result = thread_unlock_internal(lock);
     interrupt_enable();
+    //debug_interrupts_enable(__FUNCTION__);
     return result;
 }
-
-// function unlock(int ID) {
-//     make sure current_thread has lock
-//     mark lock as free
-//     if threads are on blockedQ
-//         pop front
-//         give lock to popped thread
-//         add to readyQ
-// }
 
 
 void thread_start(thread_startfunc_t func, void *arg) {
     //run user func
+    
+    //debug_interrupts_enable(__FUNCTION__);
+    interrupt_enable();
+    
     func(arg); // might have a type cast issue might need void *
 
     interrupt_disable();
-
+    //debug_interrupts_disable(__FUNCTION__);
+    cout << "end" << endl;
     
     if(!readyQ.empty()) {
         //cleanup -- idk how that looks with when creating a delete thread and deleting that 
@@ -198,7 +184,7 @@ void thread_start(thread_startfunc_t func, void *arg) {
 
 // this looks good
 int thread_libinit(thread_startfunc_t func, void *arg) {
-    
+    interrupt_disable();
     if (!libinitCalledBefore) {
 
         libinitCalledBefore = 1;
@@ -225,6 +211,7 @@ int thread_libinit(thread_startfunc_t func, void *arg) {
 
 //internal function, so we don't have to deal with interrupts
 int thread_create_internal(thread_startfunc_t func, void *arg) {
+    assert_interrupts_disabled();
     ucontext_t* new_thread = new ucontext_t;
 
     getcontext(new_thread);
@@ -243,7 +230,6 @@ int thread_create_internal(thread_startfunc_t func, void *arg) {
     
     //push thread to readyQ
     readyQ.push(new_thread);
-
     return 0;
 }
 
@@ -254,94 +240,110 @@ int thread_create(thread_startfunc_t func, void *arg) {
         return -1;
     }  
     interrupt_disable();
+    //debug_interrupts_disable(__FUNCTION__);
     int result = thread_create_internal(func, arg);
     interrupt_enable();
+    //debug_interrupts_enable(__FUNCTION__);
     return result;
 }
-
-
 
 //are we using interrupts for thread_yield?
 int thread_yield(void) {
     interrupt_disable();
+    //debug_interrupts_disable(__FUNCTION__);
     readyQ.push(current_thread);
     run_next_ready();
     interrupt_enable();
+    //debug_interrupts_enable(__FUNCTION__);
+    //interrupt_enable(); we're enabling in run_next_ready
     return 0;
 }
 
+int thread_wait_internal(unsigned int lock, unsigned int cond) {
+    assert_interrupts_disabled();
+  
+    if(!libinitCalledBefore) {
+        return -1;
+    }  
 
-/*
-
-global variable current_thread
-global variable readyQ
-global variable blockedQ 
-global variable locks(ID) // maybe an array or something? or prob map lock ->  <ID, Queue> and then <lock, CV>, queue
-
-//lock struct to hold blocked queuees 
-
-struct lock {
-
-    blockedQ
-    map(CV to BlockQ) //unique matches will have there own queue
-
+    //checks to see if lock exists and that calling owns this lock
+    if (lockDictionary.find(lock) != lockDictionary.end() && 
+        lockDictionary.find(lock)->second.current_holder == current_thread) {
+        Lock* currentLock = lockDictionary[lock];
+        // if (currentLock->CVtoBlockedQ.find(cond) != lockDictionary.end()) { // does this CV exist in the queue
+        currentLock->CVtoBlockedQ[cond].push(current_thread);
+        thread_unlock_internal(lock);
+        run_next_ready();                   // these 3 lines are risquè
+        thread_lock_internal(lock);
+        return 0;
+        // }
+        // else { // if this cv hasn't been used before
+        //     currentLock->CVtoBlockedQ[cond].push(current_thread); // not sure if needs intialization or not
+        //     return 0;
+        // }
+    }
+    return -1;
 }
 
-
-// do the internal enable interrupts disable interrupts trick for thread_create(), thread_lock(), thread_unlock()
-
-function thread_libinit {
-    creates first thread
-    runs it (setcontext)
-    Makes sure it can only get called once
+int thread_wait(unsigned int lock, unsigned int cond) {
+    interrupt_disable();
+    result = thread_wait_internal(lock, cond);
+    interrupt_enable();
+    return 0;
+    // disable
+    // interal for waiting
+    //     call unlock
+    //     run next ready
+    //     grab lock
+    // return
+    // enable 
 }
 
-
-function thread_create(func, arg) { // the way she does it is 1. disable interrupts 2. call thread_create_internal 
-    make ucontext
-        getcontext
-        makecontext(thread_start) // *********
-        stack space (SP) // USE NEW (which is the c++ equivalent of malloc)
-
-    Push thread onto ready queue
+int thread_signal_internal(unsigned int lock, unsigned int cond) {
+    assert_interrupts_disabled();
+    if(!libinitCalledBefore) {
+        return -1;
+    } 
+    //checks to see if lock exists and that calling owns this lock
+    if (lockDictionary.find(lock) != lockDictionary.end()) {
+        Lock* currentLock = lockDictionary[lock];
+        readyQ.push(currentLock->CVtoBlockedQ.front());
+        currentLock->CVtoBlockedQ.pop();
+        return 0;
+    }
+    return -1;
+    /*
+        tap into CVtoBlockedQ to pop the thread
+        add this thread to readyQ
+    */
+    
 }
 
-function thread_start(func, arg) {
-    enable interrupts here
-    void* (func)(arg);
-    disable interrupts here
-    clean up threads and stuff
+int thread_signal(unsigned int lock, unsigned int cond) {
+    intterupt_disable();
+    result = thread_signal_internal(lock, cond);
+    interrupt_enable();
+    return result;
 }
 
-function run_next_ready {
-    next thread = pop readyQ
-    current = next
-    swapcontext
+int thread_broadcast_internal(unsigned int lock, unsigned int cond) {
+    assert_interrupts_disabled();
+    if(!libinitCalledBefore) {
+        return -1;
+    } 
+    //checks to see if lock exists and that calling owns this lock
+    if (lockDictionary.find(lock) != lockDictionary.end()) {
+            Lock* currentLock = lockDictionary[lock];
+            for(int i = 0; i < currentLock->CVtoBlockedQ.size(); i++) {
+                thread_signal_internal(lock, cond);
+            }
+        return 0;
+    }
+    return -1
 }
-
-function yield() {
-    push current_thread to readyQ
-    run_next_ready()
+int thread_broadcast(unsigned int lock, unsigned int cond) {
+    interrupts_disable();
+    result = thread_broadcast_internal(lock, cond);
+    interrupt_enable();
+    return result;
 }
-
-function lock(int ID) {
-    check if lock is held
-        if it is free
-            mark it as not free
-            return
-        else
-            add current_thread to BlockedQ
-            run_next_ready
-}
-
-function unlock(int ID) {
-    make sure current_thread has lock
-    mark lock as free
-    if threads are on blockedQ
-        pop front
-        give lock to popped thread
-        add to readyQ
-}
-
-
-*/

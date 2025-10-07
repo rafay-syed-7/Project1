@@ -23,7 +23,7 @@ void worker(void *arg) {
         // Critical section
         cout << "Thread " << id << " entering critical section (iteration " << i << ")\n";
         int temp = shared_counter;
-        thread_yield();  // voluntarily yield inside lock to test atomicity
+        thread_yield();  // yield inside lock 
         shared_counter = temp + 1;
         cout << "Thread " << id << " leaving critical section, counter = " << shared_counter << "\n";
 

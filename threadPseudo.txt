@@ -1,0 +1,109 @@
+*
+
+global variable current_thread
+global variable readyQ
+global variable blockedQ 
+global variable locks(ID) // maybe an array or something? or prob map lock ->  <ID, Queue> and then <lock, CV>, queue
+
+//lock struct to hold blocked queuees 
+
+struct lock {
+
+    blockedQ
+    map(CV to BlockQ) //unique matches will have there own queue
+
+}
+
+
+// do the internal enable interrupts disable interrupts trick for thread_create(), thread_lock(), thread_unlock()
+
+function thread_libinit {
+    creates first thread
+    runs it (setcontext)
+    Makes sure it can only get called once
+}
+
+
+function thread_create(func, arg) { // the way she does it is 1. disable interrupts 2. call thread_create_internal 
+    make ucontext
+        getcontext
+        makecontext(thread_start) // *********
+        stack space (SP) // USE NEW (which is the c++ equivalent of malloc)
+
+    Push thread onto ready queue
+}
+
+function thread_start(func, arg) {
+    enable interrupts here
+    void* (func)(arg);
+    disable interrupts here
+    clean up threads and stuff
+}
+
+function run_next_ready {
+    next thread = pop readyQ
+    current = next
+    swapcontext
+}
+
+function yield() {
+    push current_thread to readyQ
+    run_next_ready()
+}
+
+function lock(int ID) {
+    check if lock is held
+        if it is free
+            mark it as not free
+            return
+        else
+            add current_thread to BlockedQ
+            run_next_ready
+}
+
+function unlock(int ID) {
+    make sure current_thread has lock
+    mark lock as free
+    if threads are on blockedQ
+        pop front
+        give lock to popped thread
+        add to readyQ
+}
+
+
+*/
+
+
+/*
+function lock(int ID) {
+    Lock* l //create instance 
+    if (ID exists in lockDicitionary) {
+        check if lock is held
+        if it is free
+            mark it as not free
+            assign current_thread as Lock->current_holder
+            return
+        else
+            add current_thread to BlockedQ
+            run_next_ready
+            return
+    } else { // lock does not exist
+        Lock newLock;
+        newLock.CVtoBlockedQ = new unordered_map< int, queue<ucontext_t*> > 
+        newLock.blockedThreads = new queue<ucontext_t*>;
+        newLock.free = false;
+        newLock.id = lock;
+        newLock.current_holder = current_thread;
+        lockDictionary[newLock.id] = &newLock;
+        return;
+    }
+
+}
+*/
+
+//locks(id) --> map(ID, lock)
+//  lock struct
+//  int id
+//. queue of blocked ucontext _ts
+//  boolean free (for a given lock is it free or not)
+//. map(int cv, queue of blocked threads)
