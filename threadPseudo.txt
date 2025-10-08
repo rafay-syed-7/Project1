@@ -107,3 +107,29 @@ function lock(int ID) {
 //. queue of blocked ucontext _ts
 //  boolean free (for a given lock is it free or not)
 //. map(int cv, queue of blocked threads)
+
+
+
+
+//thread wait internal
+  /*
+    check if calling thread DOES NOT have lock
+        return -1;
+    Lock* currentLock = lockDictionary[lock];
+    if cond exists in currentLock->CVtoBlockedQ { // make sure this doesn't insert a default null value
+        currentLock->CVtoBlockedQ[cond].push(current_thread)
+        release lock
+        //go to sleep
+        runNextReady
+        // after wake up
+        acquire lock
+    } else {
+        currentLock -> CVtoBlockedQ[cond] = new queue<ucontext_t>.push(current_thread)
+        release lock
+        // go to sleep
+        runNextReady
+        acquire lock
+    }
+    
+    //does not have
+*/  

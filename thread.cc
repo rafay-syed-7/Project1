@@ -47,6 +47,13 @@ bool libinitCalledBefore = 0;
 
 void run_next_ready() {
     assert_interrupts_disabled();
+    //check if ready queue is empty
+    if(readyQ.empty()) {
+        //no threads runnable remain
+        cout << "Thread library exiting.\n";
+        exit(0);
+    }
+
     //Save current thread context
     ucontext_t* previous_thread = current_thread;
 
@@ -162,7 +169,6 @@ void thread_start(thread_startfunc_t func, void *arg) {
 
     interrupt_disable();
     //debug_interrupts_disable(__FUNCTION__);
-    cout << "end" << endl;
     
     if(!readyQ.empty()) {
         //cleanup -- idk how that looks with when creating a delete thread and deleting that 
@@ -268,7 +274,7 @@ int thread_wait_internal(unsigned int lock, unsigned int cond) {
 
     //checks to see if lock exists and that calling owns this lock
     if (lockDictionary.find(lock) != lockDictionary.end() && 
-        lockDictionary.find(lock)->second.current_holder == current_thread) {
+        lockDictionary.find(lock)->second->current_holder == current_thread) {
         Lock* currentLock = lockDictionary[lock];
         // if (currentLock->CVtoBlockedQ.find(cond) != lockDictionary.end()) { // does this CV exist in the queue
         currentLock->CVtoBlockedQ[cond].push(current_thread);
@@ -287,9 +293,9 @@ int thread_wait_internal(unsigned int lock, unsigned int cond) {
 
 int thread_wait(unsigned int lock, unsigned int cond) {
     interrupt_disable();
-    result = thread_wait_internal(lock, cond);
+    int result = thread_wait_internal(lock, cond);
     interrupt_enable();
-    return 0;
+    return result;
     // disable
     // interal for waiting
     //     call unlock
@@ -306,44 +312,76 @@ int thread_signal_internal(unsigned int lock, unsigned int cond) {
     } 
     //checks to see if lock exists and that calling owns this lock
     if (lockDictionary.find(lock) != lockDictionary.end()) {
+        // check to see if this CVtoBlockedQ Q actually exists (wait needs to have been called before signal)
         Lock* currentLock = lockDictionary[lock];
-        readyQ.push(currentLock->CVtoBlockedQ.front());
-        currentLock->CVtoBlockedQ.pop();
-        return 0;
+        auto checkCV = currentLock->CVtoBlockedQ.find(cond);
+        
+        //check if unordered map acc has CV as a key and that the queue is not empty
+        if(checkCV != currentLock->CVtoBlockedQ.end() && !checkCV->second.empty()) {
+            //queue<ucontext_t*> BlockedQofThisCV = CVtoBlockedQ[cond];
+            // readyQ.push(currentLock->CVtoBlockedQ[cond].front());
+            // currentLock->CVtoBlockedQ[cond].pop();
+            // return 0;
+            readyQ.push(checkCV->second.front());
+            checkCV->second.pop();
+            return 0;
+        }
     }
-    return -1;
-    /*
-        tap into CVtoBlockedQ to pop the thread
-        add this thread to readyQ
-    */
-    
+    return 0;
 }
 
 int thread_signal(unsigned int lock, unsigned int cond) {
-    intterupt_disable();
-    result = thread_signal_internal(lock, cond);
+    interrupt_disable();
+    int result = thread_signal_internal(lock, cond);
     interrupt_enable();
     return result;
 }
 
 int thread_broadcast_internal(unsigned int lock, unsigned int cond) {
+    // assert_interrupts_disabled();
+    // if(!libinitCalledBefore) {
+    //     return -1;
+    // } 
+    // //checks to see if lock exists and that calling owns this lock
+    // if (lockDictionary.find(lock) != lockDictionary.end()) {
+    //         Lock* currentLock = lockDictionary[lock];
+    //         for(int i = 0; i < currentLock->CVtoBlockedQ.size(); i++) {
+    //             thread_signal_internal(lock, cond);
+    //         }
+    //     return 0;
+    // }
+    // return -1;
+
     assert_interrupts_disabled();
     if(!libinitCalledBefore) {
         return -1;
-    } 
-    //checks to see if lock exists and that calling owns this lock
-    if (lockDictionary.find(lock) != lockDictionary.end()) {
-            Lock* currentLock = lockDictionary[lock];
-            for(int i = 0; i < currentLock->CVtoBlockedQ.size(); i++) {
-                thread_signal_internal(lock, cond);
-            }
+    }
+
+    auto lockExist = lockDictionary.find(lock);
+    //if lock doesnt exist
+    if(lockExist == lockDictionary.end()) {
         return 0;
     }
-    return -1
+
+    Lock* currentLock = lockExist->second;
+    auto cvExist = currentLock->CVtoBlockedQ.find(cond);
+
+    //if cv doesnt exist
+    if(cvExist == currentLock->CVtoBlockedQ.end()) {
+        return 0;
+    }
+
+    //keep signaling while the queue is not empty
+    while(!cvExist->second.empty()) {
+        thread_signal_internal(lock, cond);
+    }
+
+    return 0;
 }
+
 int thread_broadcast(unsigned int lock, unsigned int cond) {
-    interrupts_disable();
-    result = thread_broadcast_internal(lock, cond);
+    interrupt_disable();
+    int result = thread_broadcast_internal(lock, cond);
     interrupt_enable();
     return result;
 }

@@ -138,27 +138,30 @@ void createThreads(void* arg) {
 
 
 int main(int argc, char* argv[]) {
-    //ensures proper amount of command line arguments
-    if(argc < 3) {
-        return 0;
-    }
+
 
     //TO DO: ADD MORE COMMAND LINE EDGE CASES TO CHECK
 
-    max_disk_queue = atoi(argv[1]);
+    max_disk_queue = 5;
 
+    vector<string> input_files = {
+    "disk.in0",
+    "disk.in1",
+    "disk.in2",
+    "disk.in3",
+    "disk.in4",
+    "disk.in5"
+    };
 
-    //build the requesters
-    //output is a vector of each requester id and the open file
-    for(int i = 2; i < argc; i++) {
+    for (int i = 0; i < input_files.size(); ++i) {
         Requester r;
-        r.id = i - 2; //first disc will start at 0
-        r.file.open(argv[i]);
-        if(!r.file.is_open()) {
+        r.id = i;
+        r.file.open(input_files[i]);
+        if (!r.file.is_open()) {
+            cerr << "Failed to open " << input_files[i] << endl;
             exit(1);
         }
-
-        requesters.push_back(move(r)); //pushes the file into the vector 
+        requesters.push_back(move(r));
     }
 
     //cout << num_alive_requesters << endl;
