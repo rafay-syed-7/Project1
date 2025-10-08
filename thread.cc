@@ -209,7 +209,7 @@ int thread_libinit(thread_startfunc_t func, void *arg) {
 
     } else {
         cout << "threadlibinit_failed\n" << endl;
-        exit(1);
+        return -1;
     }
 
     return 0;
