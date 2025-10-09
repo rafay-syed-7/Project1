@@ -16,8 +16,9 @@ void creator(void *arg) {
             cout << "Created " << created << " threads before failure.\n";
             break;
         }
-        if (created % 100 == 0) {
-            cout << "Created " << created << " threads..." << endl;
+        if (created > 5000) {
+            cout << "created 5000 threads and still going..." << endl;
+            break;
         }
         created++;
     }
