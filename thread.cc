@@ -218,7 +218,8 @@ int thread_libinit(thread_startfunc_t func, void *arg) {
 //internal function, so we don't have to deal with interrupts
 int thread_create_internal(thread_startfunc_t func, void *arg) {
     assert_interrupts_disabled();
-    ucontext_t* new_thread = new ucontext_t;
+    ucontext_t* new_thread = new(nothrow) ucontext_t;
+    if(new_thread == nullptr) return -1;
 
     getcontext(new_thread);
 
@@ -255,6 +256,9 @@ int thread_create(thread_startfunc_t func, void *arg) {
 
 //are we using interrupts for thread_yield?
 int thread_yield(void) {
+    if(!libinitCalledBefore) {
+        return -1;
+    }  
     interrupt_disable();
     //debug_interrupts_disable(__FUNCTION__);
     readyQ.push(current_thread);
@@ -267,10 +271,6 @@ int thread_yield(void) {
 
 int thread_wait_internal(unsigned int lock, unsigned int cond) {
     assert_interrupts_disabled();
-  
-    if(!libinitCalledBefore) {
-        return -1;
-    }  
 
     //checks to see if lock exists and that calling owns this lock
     if (lockDictionary.find(lock) != lockDictionary.end() && 
@@ -292,6 +292,9 @@ int thread_wait_internal(unsigned int lock, unsigned int cond) {
 }
 
 int thread_wait(unsigned int lock, unsigned int cond) {
+    if(!libinitCalledBefore) {
+        return -1;
+    }  
     interrupt_disable();
     int result = thread_wait_internal(lock, cond);
     interrupt_enable();
@@ -307,9 +310,7 @@ int thread_wait(unsigned int lock, unsigned int cond) {
 
 int thread_signal_internal(unsigned int lock, unsigned int cond) {
     assert_interrupts_disabled();
-    if(!libinitCalledBefore) {
-        return -1;
-    } 
+
     //checks to see if lock exists and that calling owns this lock
     if (lockDictionary.find(lock) != lockDictionary.end()) {
         // check to see if this CVtoBlockedQ Q actually exists (wait needs to have been called before signal)
@@ -331,6 +332,9 @@ int thread_signal_internal(unsigned int lock, unsigned int cond) {
 }
 
 int thread_signal(unsigned int lock, unsigned int cond) {
+    if(!libinitCalledBefore) {
+        return -1;
+    } 
     interrupt_disable();
     int result = thread_signal_internal(lock, cond);
     interrupt_enable();
@@ -353,9 +357,7 @@ int thread_broadcast_internal(unsigned int lock, unsigned int cond) {
     // return -1;
 
     assert_interrupts_disabled();
-    if(!libinitCalledBefore) {
-        return -1;
-    }
+
 
     auto lockExist = lockDictionary.find(lock);
     //if lock doesnt exist
@@ -380,6 +382,9 @@ int thread_broadcast_internal(unsigned int lock, unsigned int cond) {
 }
 
 int thread_broadcast(unsigned int lock, unsigned int cond) {
+    if(!libinitCalledBefore) {
+        return -1;
+    }
     interrupt_disable();
     int result = thread_broadcast_internal(lock, cond);
     interrupt_enable();
