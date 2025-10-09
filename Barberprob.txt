@@ -1,0 +1,80 @@
+function barber() {
+    lock
+    while (1) {
+        wait(lock, customerReady)
+        take customer
+        unlock
+        cut hair
+        lock
+        signal()
+
+    }
+
+
+}
+
+Function customer() {
+
+    while (1) {
+        lock
+        if (numHairCut + numSofa + numStanding == 9) {
+            wait(lock, standingOpen)
+        }
+
+        numStanding++
+
+        if (numSofa ==  4) {
+            wait(lock, sofaOpen)
+        }
+
+        numSofa++
+        signal(lock, standingOpen)
+
+        if (numHairCut == 3) {
+            wait(lock, barberOpen)
+        }
+
+        signal(lock, customerReady)
+        numHaircut++
+        unlock
+        sleep for amount of time haircut takes
+        lock
+        numHaircut--
+        signal(lock, barberOpen)
+        break
+    }
+
+}
+
+
+///// SEMAPHORE IMPLEMENTATION 
+
+
+
+semaphore room: N = 9
+semaphore sofa: N = 4
+semaphore haircut: N = 3
+
+Customer() {
+    while (1) {
+        room.down()
+        // enter room
+        sofa.down()
+        // on sofa now
+        chair.down()
+        // sit on chair
+        sofa.up()
+        customer.up()
+        cut.down()
+        chair.up()
+        room.up()
+    }
+
+}
+
+Barber() {
+    customer.down()
+    // cut hair
+    customer.up()
+
+}
