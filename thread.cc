@@ -170,22 +170,22 @@ void thread_start(thread_startfunc_t func, void *arg) {
     interrupt_disable();
     //debug_interrupts_disable(__FUNCTION__);
     
-    if(!readyQ.empty()) {
-        //cleanup -- idk how that looks with when creating a delete thread and deleting that 
-        //check if its not null
+    // if(!readyQ.empty()) {
+    //     //cleanup -- idk how that looks with when creating a delete thread and deleting that 
+    //     //check if its not null
 
-        if(delete_thread != nullptr) {
-            delete[](char*) delete_thread->uc_stack.ss_sp; //free stack
-            delete delete_thread; //free ucontext
-        }
+    if(delete_thread != nullptr) {
+        delete[](char*) delete_thread->uc_stack.ss_sp; //free stack
+        delete delete_thread; //free ucontext
+    }
 
-        delete_thread = current_thread; //mark this thread to be deleted by the next one
-        run_next_ready(); //swap to the next thread
-    }
-    else {
-        cout << "Thread library exiting.\n"; // might need to deallocate the space of the current thread if readyQ empty
-        exit(0);
-    }
+    delete_thread = current_thread; //mark this thread to be deleted by the next one
+    run_next_ready(); //swap to the next thread
+    // }
+    // else {
+    //     cout << "Thread library exiting.\n"; // might need to deallocate the space of the current thread if readyQ empty
+    //     exit(0);
+    // }
 }
 
 // this looks good
