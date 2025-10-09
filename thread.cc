@@ -223,7 +223,11 @@ int thread_create_internal(thread_startfunc_t func, void *arg) {
 
     getcontext(new_thread);
 
-    char* stack_new_thread = new char[STACK_SIZE];
+    char* stack_new_thread = new(nothrow) char[STACK_SIZE];
+    if (stack_new_thread == nullptr) {
+        delete new_thread;
+        return -1;
+    }
 
     //error checking -- if ran out of memory
     if(stack_new_thread == nullptr) return -1;
