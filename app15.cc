@@ -10,17 +10,7 @@ void dummy(void *arg) {
 }
 
 int main() {
-    cout << "Testing double thread_libinit...\n";
+    thread_libinit(dummy, nullptr);
+    thread_libinit(nullptr, nullptr);
 
-    // First initialization — should succeed
-    assert(thread_libinit((thread_startfunc_t) dummy, nullptr) == 0);
-
-    // This line should never execute (first libinit takes over the thread system)
-    // But if we hypothetically reached it, we could test double init
-    int result = thread_libinit((thread_startfunc_t) dummy, nullptr);
-    if (result == -1) {
-        cout << "✅ Correctly returned -1 on second thread_libinit call.\n";
-    } else {
-        cout << "❌ ERROR: thread_libinit allowed reinitialization!\n";
-    }
 }
