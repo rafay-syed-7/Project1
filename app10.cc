@@ -13,7 +13,7 @@ int main() {
     cout << "Testing invalid calls before thread_libinit...\n";
 
     // None of these should work — the library is not initialized yet.
-    assert(thread_lock(LOCK_ID) == 0);
+    assert(thread_lock(LOCK_ID) == -1);
     cout << "thread_lock correctly returned -1\n";
 
     assert(thread_unlock(LOCK_ID) == -1);
@@ -34,5 +34,5 @@ int main() {
     assert(thread_create((thread_startfunc_t) nullptr, nullptr) == -1);
     cout << "thread_create correctly returned -1\n";
 
-    cout << "✅ All pre-libinit calls correctly failed.\n";
+    cout << "All pre-libinit calls correctly failed.\n";
 }

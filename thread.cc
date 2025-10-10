@@ -86,7 +86,7 @@ int thread_lock_internal(unsigned int lock) {
 
 int thread_lock(unsigned int lock) {
     // ensuring libinit is already called, otherwise exit
-    if(libinitCalledBefore) {
+    if(!libinitCalledBefore) {
         return -1;
     }  
     
@@ -133,7 +133,7 @@ int thread_unlock_internal(unsigned int lock) {
 
 int thread_unlock(unsigned int lock) {
     // ensuring libinit is already called, otherwise exit
-    if(libinitCalledBefore) {
+    if(!libinitCalledBefore) {
         return -1;
     }  
     interrupt_disable();
@@ -147,8 +147,9 @@ int thread_unlock(unsigned int lock) {
 
 
 void thread_start(thread_startfunc_t func, void *arg) {
+
     interrupt_enable();
-    
+
     func(arg); // might have a type cast issue might need void *
 
     interrupt_disable();
@@ -164,6 +165,8 @@ void thread_start(thread_startfunc_t func, void *arg) {
 
 int thread_libinit(thread_startfunc_t func, void *arg) {
     interrupt_disable();
+    if(func == nullptr) return -1;
+
     if (!libinitCalledBefore) {
 
         libinitCalledBefore = 1;
@@ -179,13 +182,11 @@ int thread_libinit(thread_startfunc_t func, void *arg) {
         makecontext(thread0_ptr, (void(*) ()) thread_start, 2, func, arg);
         current_thread = thread0_ptr; //new add
         setcontext(thread0_ptr);
-
-    } else {
-        cout << "threadlibinit_failed\n" << endl;
-        return -1;
+        return 0;
     }
 
-    return 0;
+    cout << "threadlibinit_failed\n" << endl;
+    return -1;    
 }
 
 int thread_create_internal(thread_startfunc_t func, void *arg) {
@@ -263,7 +264,7 @@ int thread_create_internal(thread_startfunc_t func, void *arg) {
 
 int thread_create(thread_startfunc_t func, void *arg) {
     // ensuring libinit is already called, otherwise exit
-    if(libinitCalledBefore) {
+    if(!libinitCalledBefore) {
         return -1;
     }  
     interrupt_disable();
@@ -275,7 +276,7 @@ int thread_create(thread_startfunc_t func, void *arg) {
 }
 
 int thread_yield(void) {
-    if(libinitCalledBefore) {
+    if(!libinitCalledBefore) {
         return -1;
     }  
     interrupt_disable();
@@ -305,7 +306,7 @@ int thread_wait_internal(unsigned int lock, unsigned int cond) {
 }
 
 int thread_wait(unsigned int lock, unsigned int cond) {
-    if(libinitCalledBefore) {
+    if(!libinitCalledBefore) {
         return -1;
     }  
     interrupt_disable();
@@ -334,7 +335,7 @@ int thread_signal_internal(unsigned int lock, unsigned int cond) {
 }
 
 int thread_signal(unsigned int lock, unsigned int cond) {
-    if(libinitCalledBefore) {
+    if(!libinitCalledBefore) {
         return -1;
     } 
     interrupt_disable();
@@ -371,7 +372,7 @@ int thread_broadcast_internal(unsigned int lock, unsigned int cond) {
 }
 
 int thread_broadcast(unsigned int lock, unsigned int cond) {
-    if(libinitCalledBefore) {
+    if(!libinitCalledBefore) {
         return -1;
     }
     interrupt_disable();
