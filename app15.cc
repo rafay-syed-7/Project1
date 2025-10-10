@@ -10,7 +10,8 @@ void dummy(void *arg) {
 }
 
 int main() {
-    thread_libinit(dummy, nullptr);
-    thread_libinit(nullptr, nullptr);
-
+    int a = thread_libinit(dummy, nullptr);
+    int b = thread_libinit(nullptr, nullptr);
+    cout << a << endl;
+    cout << b << endl; 
 }
