@@ -4,6 +4,8 @@
 
 using namespace std;
 
+// CHECKS LOCKS WORK
+
 unsigned int LOCK_ID = 1;  // simple lock identifier
 
 // Shared counter

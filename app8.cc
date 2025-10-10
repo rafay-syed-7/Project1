@@ -1,29 +1,32 @@
 #include "thread.h"
 #include <iostream>
+#include <cstdint>
 
 using namespace std;
 
-// TOO MANY THREADS (checking memory)
+constexpr int N_CHILDREN = 100000;
 
-void noop(void *arg) {
-    while (true) thread_yield(); // never exits
+void child(void *arg) {
+    // Do something trivial, then return
+    volatile intptr_t x = reinterpret_cast<intptr_t>(arg);
+    x += 1;
+    (void)x; // silence unused warning
+    // returning exits the thread in most thread libs using this API
 }
 
-void creator(void *arg) {
-    int created = 0;
-    while (true) {
-        if (thread_create(noop, nullptr) != 0) {
-            cout << "Created " << created << " threads before failure.\n";
-            break;
+void parent(void *arg) {
+    for (int i = 0; i < N_CHILDREN; ++i) {
+        // pass a small unique integer to each child
+        void *payload = reinterpret_cast<void*>(static_cast<intptr_t>(i));
+        if (thread_create(child, payload) != 0) {
+            cout << "Created " << i << " threads before failure.\n";
+            return;  // stop on failure
         }
-        if (created > 5000) {
-            cout << "created 5000 threads and still going..." << endl;
-            break;
-        }
-        created++;
     }
+    // No printing on success; parent just returns
 }
 
 int main() {
-    thread_libinit((thread_startfunc_t) creator, nullptr);
+    // Start the threading library with parent as the initial thread
+    thread_libinit(parent, nullptr);
 }

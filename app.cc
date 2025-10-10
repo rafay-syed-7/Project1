@@ -4,6 +4,8 @@
 
 using namespace std;
 
+// CHECKS THREAD LIBINIT AND CREATE AND START 
+
 void child(void *arg) {
     cout << "Child thread started with message: " << (char*) arg << endl;
 

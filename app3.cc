@@ -14,6 +14,8 @@ unsigned int COND_ID = 1;
 
 int shared_state = 0;
 
+// CHECKS MONITORS 
+
 void waiter(void *arg) {
     long id = (long) arg;
 
